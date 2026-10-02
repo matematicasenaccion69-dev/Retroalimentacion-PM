@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluador Dinámico: MCM y MCD</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .quiz-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 650px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #eef2f5;
+        }
+
+        .progress {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .timer {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #dc2626;
+            background: #fee2e2;
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        .question {
+            font-size: 1.15rem;
+            color: #334155;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            font-weight: 500;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .option-btn {
+            background-color: #f8fafc;
+            border: 2px solid #e2e8f0;
+            padding: 14px 16px;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 1rem;
+            color: #1e293b;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .option-btn:hover {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .submit-btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* Modal de Finalización */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+        }
+
+        .modal h2 {
+            color: #16a34a;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .btn-restart { background: #16a34a; color: white; }
+        .btn-close { background: #64748b; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="quiz-card">
+        <div class="header">
+            <span class="progress" id="progressText">Pregunta 1 de 10 (Faltan: 9)</span>
+            <span class="timer" id="timerText">Tiempo: 40s</span>
+        </div>
+
+        <div class="question" id="questionText">Cargando pregunta...</div>
+
+        <div class="options-container" id="optionsContainer">
+            <!-- Las opciones dinámicas se cargan aquí -->
+        </div>
+
+        <button class="submit-btn" onclick="evaluarRespuesta()">Confirmar Respuesta</button>
+    </div>
+
+    <div class="modal-overlay" id="finishModal">
+        <div class="modal">
+            <h2>¡Felicidades! 🎉</h2>
+            <p id="summaryText">Has respondido correctamente las 10 preguntas.</p>
+            <div class="modal-btns">
+                <button class="modal-btn btn-restart" onclick="iniciarJuego()">Reiniciar</button>
+                <button class="modal-btn btn-close" onclick="cerrarJuego()">Salir</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Funciones Auxiliares para Cálculos Matemáticos (MCD y MCM)
+        function calcularMCD(a, b) {
+            while (b) {
+                let temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
+        }
+
+        function mcdVarios(arr) {
+            return arr.reduce((acc, val) => calcularMCD(acc, val));
+        }
+
+        function calcularMCM(a, b) {
+            return (a * b) / calcularMCD(a, b);
+        }
+
+        function mcmVarios(arr) {
+            return arr.reduce((acc, val) => calcularMCM(acc, val));
+        }
+
+        function randInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // Definición de las 20 plantillas de preguntas dinámicas basadas en el documento
+        const plantillasPreguntas = [
+            // MCM
+            {
+                id: 1,
+                gen: () => {
+                    let a = randInt(2, 4) * 6;  // 12, 18, 24
+                    let b = randInt(2, 4) * 7;  // 14, 21, 28
+                    let ans = calcularMCM(a, b);
+                    return {
+                        texto: `En un paradero de autobuses, la ruta A pasa cada ${a} minutos y la ruta B pasa cada ${b} minutos. Si ambos autobuses coincidieron a las 7:00 a.m., ¿dentro de cuántos minutos volverán a coincidir por primera vez?`,
+                        correcta: `${ans} minutos (MCM)`,
+                        distractores: [`${calcularMCD(a, b)} minutos (MCD)`, `${a + b} minutos`, `${ans + 12} minutos`]
+                    };
+                }
+            },
+            {
+                id: 2,
+                gen: () => {
+                    let a = randInt(2, 4) * 4;
+                    let b = randInt(2, 4) * 5;
+                    let c = randInt(2, 4) * 6;
+                    let ans = mcmVarios([a, b, c]);
+                    return {
+                        texto: `María tiene tres luces navideñas. La luz roja parpadea cada ${a} segundos, la verde cada ${b} segundos y la azul cada ${c} segundos. Si se encienden juntas, ¿después de cuántos segundos volverán a parpadear simultáneamente?`,
+                        correcta: `${ans} segundos (MCM)`,
+                        distractores: [`${mcdVarios([a, b, c])} segundos (MCD)`, `${ans / 2} segundos`, `${a + b + c} segundos`]
+                    };
+                }
+            },
+            {
+                id: 3,
+                gen: () => {
+                    let a = randInt(2, 5) * 2;
+                    let b = randInt(2, 5) * 3;
+                    let c = randInt(2, 5) * 4;
+                    let ans = mcmVarios([a, b, c]);
+                    return {
+                        texto: `Carlos va al gimnasio cada ${a} días, Sofía va cada ${b} días y Luis va cada ${c} días. Si coincidieron hoy, ¿dentro de cuántos días se volverán a encontrar todos allí?`,
+                        correcta: `${ans} días (MCM)`,
+                        distractores: [`${mcdVarios([a, b, c])} días (MCD)`, `${ans + 6} días`, `${a * b} días`]
+                    };
+                }
+            },
+            {
+                id: 4,
+                gen: () => {
+                    let a = randInt(2, 5) * 5;
+                    let b = randInt(2, 5) * 7;
+                    let ans = calcularMCM(a, b);
+                    return {
+                        texto: `Un faro emite una señal de luz cada ${a} segundos y otro faro emite su señal cada ${b} segundos. Si emiten un destello al mismo instante, ¿cuántos segundos pasarán para que vuelvan a coincidir?`,
+                        correcta: `${ans} segundos (MCM)`,
+                        distractores: [`${calcularMCD(a, b)} segundos (MCD)`, `${a + b} segundos`, `${ans - 15} segundos`]
+                    };
+                }
+            },
+            {
+                id: 5,
+                gen: () => {
+                    let a = randInt(3, 6) * 6;
+                    let b = randInt(2, 5) * 4;
+                    let ans = calcularMCM(a, b);
+                    return {
+                        texto: `La rueda grande de un engranaje tiene ${a} dientes y la pequeña tiene ${b} dientes. Si están alineadas, ¿cuántos dientes deben pasar para que vuelvan a quedar en la misma posición inicial?`,
+                        correcta: `${ans} dientes (MCM)`,
+                        distractores: [`${calcularMCD(a, b)} dientes (MCD)`, `${a + b} dientes`, `${ans * 2} dientes`]
+                    };
+                }
+            },
+            {
+                id: 6,
+                gen: () => {
+                    let a = 15 * randInt(1, 3);
+                    let b = 20 * randInt(1, 2);
+                    let c = 30 * randInt(1, 2);
+                    let ans = mcmVarios([a, b, c]);
+                    return {
+                        texto: `Tres alarmas suenan a intervalos de ${a}, ${b} y ${c} minutos. Si sonaron juntas a las 12:00 p.m., ¿cuántos minutos deberán transcurrir para que vuelvan a sonar juntas?`,
+                        correcta: `${ans} minutos (MCM)`,
+                        distractores: [`${mcdVarios([a, b, c])} minutos (MCD)`, `${ans + 30} minutos`, `${a + b + c} minutos`]
+                    };
+                }
+            },
+            {
+                id: 7,
+                gen: () => {
+                    let a = randInt(2, 4) * 7;
+                    let b = randInt(2, 4) * 9;
+                    let ans = calcularMCM(a, b);
+                    return {
+                        texto: `Un vendedor de refrescos visita una tienda cada ${a} días y el distribuidor de botanas cada ${b} días. Si hoy coincidieron, ¿en cuántos días volverán a encontrarse?`,
+                        correcta: `${ans} días (MCM)`,
+                        distractores: [`${calcularMCD(a, b)} días (MCD)`, `${a + b} días`, `${ans - 14} días`]
+                    };
+                }
+            },
+            {
+                id: 8,
+                gen: () => {
+                    let a = randInt(3, 6) * 15;
+                    let b = randInt(3, 6) * 20;
+                    let c = randInt(3, 6) * 25;
+                    let ans = mcmVarios([a, b, c]);
+                    return {
+                        texto: `En una pista circular, tres atletas dan una vuelta completa en ${a}, ${b} y ${c} segundos respectivamente. Si parten juntos, ¿cuántos segundos tardarán en volverse a cruzar en la meta?`,
+                        correcta: `${ans} segundos (MCM)`,
+                        distractores: [`${mcdVarios([a, b, c])} segundos (MCD)`, `${ans / 2} segundos`, `${a + b + c} segundos`]
+                    };
+                }
+            },
+            {
+                id: 9,
+                gen: () => {
+                    let a = randInt(2, 4) * 3;
+                    let b = randInt(2, 4) * 4;
+                    let ans = calcularMCM(a, b);
+                    return {
+                        texto: `Una persona toma un medicamento A cada ${a} horas y un medicamento B cada ${b} horas. Si se tomó ambos juntos ahora, ¿dentro de cuántas horas le tocará tomarlos juntos nuevamente?`,
+                        correcta: `${ans} horas (MCM)`,
+                        distractores: [`${calcularMCD(a, b)} horas (MCD)`, `${a + b} horas`, `${ans + 6} horas`]
+                    };
+                }
+            },
+            {
+                id: 10,
+                gen: () => {
+                    let a = randInt(2, 5) * 8;
+                    let b = randInt(2, 5) * 12;
+                    let ans = calcularMCM(a, b);
+                    return {
+                        texto: `Una máquina produce una pieza cada ${a} minutos y otra una bolsa cada ${b} minutos. Si inician juntas, ¿cuántos minutos transcurrirán para que coincida el término de producción de ambas?`,
+                        correcta: `${ans} minutos (MCM)`,
+                        distractores: [`${calcularMCD(a, b)} minutos (MCD)`, `${a + b} minutos`, `${ans / 2} minutos`]
+                    };
+                }
+            },
+
+            // MCD
+            {
+                id: 11,
+                gen: () => {
+                    let k = randInt(4, 12);
+                    let a = k * randInt(3, 5);
+                    let b = k * randInt(6, 8);
+                    let ans = calcularMCD(a, b);
+                    return {
+                        texto: `Un agricultor tiene ${a} kg de manzanas y ${b} kg de naranjas. Quiere empacarlas en cajas de igual peso sin mezclar frutas y sin que sobre nada. ¿Cuál es el máximo peso posible por caja?`,
+                        correcta: `${ans} kg (MCD)`,
+                        distractores: [`${calcularMCM(a, b)} kg (MCM)`, `${ans * 2} kg`, `${Math.floor(ans / 2)} kg`]
+                    };
+                }
+            },
+            {
+                id: 12,
+                gen: () => {
+                    let k = randInt(4, 10);
+                    let a = k * randInt(2, 4);
+                    let b = k * randInt(5, 7);
+                    let ans = calcularMCD(a, b);
+                    return {
+                        texto: `Unos profesores tienen ${a} chocolates y ${b} paletas. Desean armar la mayor cantidad de aguinaldos iguales sin que sobre ningún dulce. ¿Cuántos aguinaldos podrán armar?`,
+                        correcta: `${ans} aguinaldos (MCD)`,
+                        distractores: [`${calcularMCM(a, b)} aguinaldos (MCM)`, `${ans + 4} aguinaldos`, `${Math.floor(ans / 2)} aguinaldos`]
+                    };
+                }
+            },
+            {
+                id: 13,
+                gen: () => {
+                    let k = randInt(10, 30);
+                    let a = k * randInt(3, 5);
+                    let b = k * randInt(6, 8);
+                    let ans = calcularMCD(a, b);
+                    return {
+                        texto: `Un carpintero tiene dos tiras de madera de ${a} cm y ${b} cm. Necesita cortarlas en tramos de la misma longitud, tan largos como sea posible y sin desperdiciar. ¿Cuánto debe medir cada tramo?`,
+                        correcta: `${ans} cm (MCD)`,
+                        distractores: [`${calcularMCM(a, b)} cm (MCM)`, `${ans * 2} cm`, `${ans - 5} cm`]
+                    };
+                }
+            },
+            {
+                id: 14,
+                gen: () => {
+                    let k = randInt(3, 8);
+                    let a = k * 2;
+                    let b = k * 3;
+                    let c = k * 5;
+                    let ans = mcdVarios([a, b, c]);
+                    return {
+                        texto: `Una sastrería dispone de tres rollos de tela de ${a}, ${b} y ${c} metros. Desean cortarlos en pedazos iguales de la mayor longitud posible sin desperdiciar. ¿De qué longitud debe ser cada corte?`,
+                        correcta: `${ans} metros (MCD)`,
+                        distractores: [`${mcmVarios([a, b, c])} metros (MCM)`, `${ans * 2} metros`, `${ans + 1} metros`]
+                    };
+                }
+            },
+            {
+                id: 15,
+                gen: () => {
+                    let k = randInt(4, 12);
+                    let a = k * randInt(4, 6);
+                    let b = k * randInt(2, 3);
+                    let ans = calcularMCD(a, b);
+                    return {
+                        texto: `Un terreno rectangular mide ${a} metros de largo por ${b} metros de ancho. Se desea dividir en parcelas cuadradas del mayor tamaño posible sin que sobre terreno. ¿Cuánto debe medir el lado de cada parcela?`,
+                        correcta: `${ans} metros (MCD)`,
+                        distractores: [`${calcularMCM(a, b)} metros (MCM)`, `${ans * 2} metros`, `${Math.floor(ans / 2)} metros`]
+                    };
+                }
+            },
+            {
+                id: 16,
+                gen: () => {
+                    let k = randInt(6, 12);
+                    let a = k * 3;
+                    let b = k * 4;
+                    let c = k * 5;
+                    let ans = mcdVarios([a, b, c]);
+                    return {
+                        texto: `Se tienen ${a} libros de matemáticas, ${b} de historia y ${c} de ciencias. Se organizan en estantes iguales con un solo tipo de materia y la mayor cantidad de libros posible. ¿Cuántos libros habrá por estante?`,
+                        correcta: `${ans} libros (MCD)`,
+                        distractores: [`${mcmVarios([a, b, c])} libros (MCM)`, `${ans * 2} libros`, `${Math.floor(ans / 2)} libros`]
+                    };
+                }
+            },
+            {
+                id: 17,
+                gen: () => {
+                    let k = randInt(5, 15);
+                    let a = k * 3;
+                    let b = k * 4;
+                    let c = k * 5;
+                    let ans = mcdVarios([a, b, c]);
+                    return {
+                        texto: `Un florista tiene ${a} rosas rojas, ${b} blancas y ${c} amarillas. Desea formar el mayor número de ramos idénticos utilizando todas las flores. ¿Cuántos ramos puede formar?`,
+                        correcta: `${ans} ramos (MCD)`,
+                        distractores: [`${mcmVarios([a, b, c])} ramos (MCM)`, `${ans + 5} ramos`, `${Math.floor(ans / 2)} ramos`]
+                    };
+                }
+            },
+            {
+                id: 18,
+                gen: () => {
+                    let k = randInt(4, 10);
+                    let a = k * 4;
+                    let b = k * 5;
+                    let ans = calcularMCD(a, b);
+                    return {
+                        texto: `En una actividad hay ${a} hombres y ${b} mujeres. Se quieren formar grupos con el mismo número de integrantes, exclusivos (solo hombres o solo mujeres) y de la mayor cantidad posible. ¿Cuántas personas habrá por grupo?`,
+                        correcta: `${ans} personas (MCD)`,
+                        distractores: [`${calcularMCM(a, b)} personas (MCM)`, `${ans * 2} personas`, `${ans + 2} personas`]
+                    };
+                }
+            },
+            {
+                id: 19,
+                gen: () => {
+                    let k = randInt(15, 25);
+                    let a = k * 2;
+                    let b = k * 3;
+                    let c = k * 4;
+                    let ans = mcdVarios([a, b, c]);
+                    return {
+                        texto: `Un electricista tiene tres cables que miden ${a} cm, ${b} cm y ${c} cm. Debe cortarlos en trozos de igual longitud, lo más largos posible sin desperdiciar. ¿Cuál será la longitud de cada trozo?`,
+                        correcta: `${ans} cm (MCD)`,
+                        distractores: [`${mcmVarios([a, b, c])} cm (MCM)`, `${ans * 2} cm`, `${ans - 10} cm`]
+                    };
+                }
+            },
+            {
+                id: 20,
+                gen: () => {
+                    let k = randInt(6, 18);
+                    let a = k * 5;
+                    let b = k * 7;
+                    let ans = calcularMCD(a, b);
+                    return {
+                        texto: `Una tienda empaqueta ${a} latas de atún y ${b} latas de elote en cajas iguales con la mayor cantidad de latas cada una sin mezclar productos. ¿Cuántas latas contendrá cada caja?`,
+                        correcta: `${ans} latas (MCD)`,
+                        distractores: [`${calcularMCM(a, b)} latas (MCM)`, `${ans * 2} latas`, `${Math.floor(ans / 2)} latas`]
+                    };
+                }
+            }
+        ];
+
+        // Estado del Juego
+        let preguntasSeleccionadas = [];
+        let datosPreguntaActual = null;
+        let indiceActual = 0;
+        let opcionSeleccionada = null;
+        let tiempoRestante = 40;
+        let tiempoTotalAcumulado = 0;
+        let timerPregunta = null;
+        let timerGlobal = null;
+
+        // Contexto Web Audio API para efectos sintéticos
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function iniciarJuego() {
+            // Seleccionar 10 plantillas aleatorias sin repetir
+            let copias = [...plantillasPreguntas];
+            copias.sort(() => Math.random() - 0.5);
+            preguntasSeleccionadas = copias.slice(0, 10);
+
+            indiceActual = 0;
+            tiempoTotalAcumulado = 0;
+            document.getElementById('finishModal').style.display = 'none';
+
+            clearInterval(timerGlobal);
+            timerGlobal = setInterval(() => tiempoTotalAcumulado++, 1000);
+
+            cargarPregunta();
+        }
+
+        function cargarPregunta() {
+            clearInterval(timerPregunta);
+            opcionSeleccionada = null;
+
+            // Generar valores numéricos aleatorios y nuevos cálculos para la pregunta actual
+            datosPreguntaActual = preguntasSeleccionadas[indiceActual].gen();
+
+            const faltantes = 10 - (indiceActual + 1);
+            document.getElementById('progressText').innerText = `Pregunta ${indiceActual + 1} de 10 (Faltan: ${faltantes})`;
+            document.getElementById('questionText').innerText = datosPreguntaActual.texto;
+
+            // Preparar opciones de respuesta con posición aleatoria
+            let opciones = [datosPreguntaActual.correcta, ...datosPreguntaActual.distractores];
+            opciones.sort(() => Math.random() - 0.5);
+
+            const container = document.getElementById('optionsContainer');
+            container.innerHTML = '';
+
+            const incisos = ['a', 'b', 'c', 'd'];
+            opciones.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = `${incisos[index]}) ${opt}`;
+                btn.onclick = () => seleccionarOpcion(btn, opt);
+                container.appendChild(btn);
+            });
+
+            // Iniciar temporizador de 40 segundos
+            tiempoRestante = 40;
+            actualizarTimerUI();
+            timerPregunta = setInterval(() => {
+                tiempoRestante--;
+                actualizarTimerUI();
+                if (tiempoRestante <= 0) {
+                    clearInterval(timerPregunta);
+                    reproducirError();
+                    alert("¡Tiempo agotado! El cuestionario se reiniciará con nuevas preguntas y datos.");
+                    iniciarJuego();
+                }
+            }, 1000);
+        }
+
+        function actualizarTimerUI() {
+            document.getElementById('timerText').innerText = `Tiempo: ${tiempoRestante}s`;
+        }
+
+        function seleccionarOpcion(btnElement, valor) {
+            const btns = document.querySelectorAll('.option-btn');
+            btns.forEach(b => {
+                b.style.borderColor = '#e2e8f0';
+                b.style.backgroundColor = '#f8fafc';
+            });
+
+            btnElement.style.borderColor = '#2563eb';
+            btnElement.style.backgroundColor = '#eff6ff';
+            opcionSeleccionada = valor;
+        }
+
+        function evaluarRespuesta() {
+            if (!opcionSeleccionada) {
+                alert("Por favor, elige una opción.");
+                return;
+            }
+
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            clearInterval(timerPregunta);
+
+            if (opcionSeleccionada === datosPreguntaActual.correcta) {
+                reproducirAplausos();
+                indiceActual++;
+
+                if (indiceActual < 10) {
+                    cargarPregunta();
+                } else {
+                    clearInterval(timerGlobal);
+                    reproducirFanfarria();
+
+                    const min = Math.floor(tiempoTotalAcumulado / 60);
+                    const seg = tiempoTotalAcumulado % 60;
+                    document.getElementById('summaryText').innerText = `¡Lo lograste! Completaste exitosamente las 10 preguntas.\nTiempo total empleado: ${min} min ${seg} seg.`;
+                    document.getElementById('finishModal').style.display = 'flex';
+                }
+            } else {
+                reproducirError();
+                alert("Respuesta incorrecta. El cuestionario se reiniciará con preguntas y valores numéricos completamente nuevos.");
+                iniciarJuego();
+            }
+        }
+
+        function cerrarJuego() {
+            document.getElementById('finishModal').style.display = 'none';
+            alert("Gracias por practicar. Escanea nuevamente el código QR cuando desees volver a intentar.");
+        }
+
+        // Efectos de Sonido Sintéticos con Web Audio API
+        function reproducirError() {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function reproducirAplausos() {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function reproducirFanfarria() {
+            const notas = [523.25, 659.25, 783.99, 1046.50];
+            notas.forEach((freq, i) => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.12);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime + i * 0.12);
+                osc.stop(audioCtx.currentTime + i * 0.12 + 0.3);
+            });
+        }
+
+        window.onload = iniciarJuego;
+    </script>
+</body>
+</html>

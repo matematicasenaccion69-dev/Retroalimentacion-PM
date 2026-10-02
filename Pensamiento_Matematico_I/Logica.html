@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Pensamiento Matemático I</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        .card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 600px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #eef2f5;
+        }
+
+        .progress {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .timer {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #e74c3c;
+            background: #fdeae8;
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+
+        .question {
+            font-size: 1.15rem;
+            color: #34495e;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .option-btn {
+            background-color: #f8f9fa;
+            border: 2px solid #e9ecef;
+            padding: 14px 16px;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 1rem;
+            color: #212529;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .option-btn:hover {
+            background-color: #e8f0fe;
+            border-color: #3b82f6;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .submit-btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* Modal final */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .modal {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+        }
+
+        .modal h2 {
+            color: #16a34a;
+            margin-bottom: 15px;
+        }
+
+        .modal p {
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            color: #4b5563;
+        }
+
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border-radius: 6px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-restart { background: #16a34a; color: white; }
+        .btn-close { background: #6b7280; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="header">
+            <span class="progress" id="progressText">Pregunta 1 de 10</span>
+            <span class="timer" id="timerText">Tiempo: 40s</span>
+        </div>
+
+        <div class="question" id="questionText">Cargando pregunta...</div>
+
+        <div class="options-container" id="optionsContainer">
+            <!-- Las opciones se generan dinámicamente -->
+        </div>
+
+        <button class="submit-btn" id="submitBtn" onclick="evaluarRespuesta()">Confirmar Respuesta</button>
+    </div>
+
+    <!-- Modal para cuando completa exitosamente el test -->
+    <div class="modal-overlay" id="finishModal">
+        <div class="modal">
+            <h2>¡Felicidades! 🎉</h2>
+            <p id="summaryText">Completaste las 10 preguntas correctamente.</p>
+            <div class="modal-btns">
+                <button class="modal-btn btn-restart" onclick="reiniciarCuestionario()">Volver a intentar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Banco con las 20 preguntas extraídas de la guía
+        const bancoPreguntas = [
+            { e: "1. ¿Cuál de las siguientes opciones representa correctamente la negación de la proposición p?", c: "¬p", o: ["p ∧ q", "p ∨ q", "p → q"] },
+            { e: "2. Si p es verdadero y q es falso, ¿cuál es el valor de verdad de la proposición p ∧ q?", c: "Falso", o: ["Verdadero", "Indeterminado", "Ninguna de las anteriores"] },
+            { e: "3. ¿Qué afirma una tabla de verdad sobre una proposición compuesta?", c: "Muestra todos los posibles valores de verdad según las proposiciones simples componentes.", o: ["Solo indica si la proposición es verdadera.", "Indica el número de proposiciones simples que contiene.", "Calcula ecuaciones matemáticas complejas."] },
+            { e: "4. En la conjunción p ∧ q, ¿cuándo es verdadera esta proposición?", c: "Cuando p y q son verdaderos.", o: ["Cuando p es verdadero.", "Cuando q es falso.", "Cuando alguna de las proposiciones es verdadera."] },
+            { e: "5. ¿Cuál es el símbolo lógico que representa el condicional \"si... entonces\"?", c: "→", o: ["∧", "∨", "¬"] },
+            { e: "6. Una proposición lógica es una afirmación que puede ser:", c: "Verdadera o falsa, pero no ambas al mismo tiempo.", o: ["Solo verdadera.", "Solo falsa.", "Verdadera y falsa al mismo tiempo."] },
+            { e: "7. Considera p: \"Hoy es lunes\" y q: \"El sol está brillando\". Para p ∨ q, ¿cuándo es verdadera?", c: "Cuando al menos una de p o q es verdadera.", o: ["Solo cuando p y q son verdaderos.", "Solo cuando p es falsa.", "Nunca es verdadera."] },
+            { e: "8. ¿Cuál es el propósito de construir una tabla de verdad?", c: "Identificar todos los valores de verdad posibles de proposiciones compuestas.", o: ["Representar gráficamente una ecuación matemática.", "Resolver problemas numéricos.", "Registrar datos estadísticos."] },
+            { e: "9. Si la proposición p es verdadera, ¿cuál es el valor de verdad de ¬p (la negación de p)?", c: "Falso", o: ["Verdadero", "Indeterminado", "Depende del contexto"] },
+            { e: "10. En la proposición compuesta p → q (condicional), ¿cuál es la única situación que hace que sea falsa?", c: "Cuando p es verdadero y q es falso.", o: ["Cuando p es falso y q es verdadero.", "Cuando ambos son verdaderos.", "Cuando ambos son falsos."] },
+            { e: "11. En Tabasco, p: \"Hoy llueve\" y q: \"Las calles están inundadas\". ¿Cuál es el valor de verdad de p ∧ q cuando hoy NO llueve, pero las calles SÍ están inundadas?", c: "Falso", o: ["Verdadero", "No se puede determinar", "Verdadero solo si las calles también están secas"] },
+            { e: "12. Un semáforo cambia cada 36 segundos y otro cada 48 segundos. ¿Cada cuántos segundos coinciden nuevamente?", c: "144", o: ["72", "96", "120"] },
+            { e: "13. Si la proposición condicional \"Si no hay electricidad en Jalpa, entonces los sistemas de riego no funcionan\" es FALSA, ¿cuál alternativa es cierta?", c: "No hay electricidad y los sistemas sí funcionan", o: ["No hay electricidad y los sistemas no funcionan", "Hay electricidad y los sistemas sí funcionan", "Hay electricidad y los sistemas no funcionan"] },
+            { e: "14. En p ∨ q, con p: \"El río Grijalva sube su nivel\" y q: \"La presa Peñitas abre compuertas\", ¿qué valor tiene p ∨ q cuando el río NO sube pero la presa SÍ abre compuertas?", c: "Verdadero", o: ["Falso", "Depende del clima", "Verdadero solo si el río sube su nivel"] },
+            { e: "15. Si p: \"Hay alerta de tormenta en Tabasco\" y q: \"Se suspenden las clases\", ¿cuál es la proposición lógica que significa \"Si hay alerta de tormenta, ¿entonces se suspenden las clases\"?", c: "p → q", o: ["p ∧ q", "p ∨ q", "p ↔ q"] },
+            { e: "16. Leonardo de Pisa es famoso por la sucesión de Fibonacci: 1, 1, 2, 3, 5, 8, ... ¿Cuál es la regla para obtener el siguiente número?", c: "Sumar los dos números anteriores.", o: ["Restar el número anterior al actual.", "Multiplicar por 2 cada término.", "Dividir entre el número anterior."] },
+            { e: "17. En matemáticas, ¿cuál de las siguientes opciones corresponde únicamente a números naturales?", c: "1, 2, 3, 4, 5", o: ["-5, 0, 1, 2", "0, 1, 2, 3, 4", "½, 1, 2, 3"] },
+            { e: "18. El sistema de numeración maya utilizaba tres símbolos: punto (•), raya (—) y caracol. ¿Qué representaba cada uno?", c: "Punto = 1, Raya = 5, Caracol = 0", o: ["Punto = 5, Raya = 10, Caracol = 1", "Punto = 1, Raya = 10, Caracol = 20", "Punto = 0, Raya = 1, Caracol = 5"] },
+            { e: "19. Una empresa quiere empacar 120 lápices y 180 plumas en cajas con la misma cantidad de cada artículo, sin que sobre ninguno. ¿Cuál es el mayor número de cajas que puede formar?", c: "60", o: ["20", "30", "15"] },
+            { e: "20. La proposición bicondicional p ↔ q: \"La producción de cacao es exitosa si y solo si hay lluvias regulares\". ¿En qué caso esta proposición es FALSA?", c: "Cuando hay lluvias regulares y la producción no es exitosa", o: ["Cuando no hay lluvias regulares y la producción no es exitosa", "Cuando hay lluvias regulares y la producción es exitosa", "Cuando no hay lluvias regulares pero la producción es exitosa"] }
+        ];
+
+        let preguntasRonda = [];
+        let indiceActual = 0;
+        let opcionSeleccionada = null;
+        let tiempoRestante = 40;
+        let tiempoTotal = 0;
+        let timerPregunta = null;
+        let timerGlobal = null;
+
+        // Contexto de Audio Web API para sonidos sintéticos nativos
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function iniciarJuego() {
+            // Seleccionar 10 preguntas aleatorias de las 20 sin repetición
+            let copiaBanco = [...bancoPreguntas];
+            copiaBanco.sort(() => Math.random() - 0.5);
+            preguntasRonda = copiaBanco.slice(0, 10);
+
+            indiceActual = 0;
+            tiempoTotal = 0;
+            document.getElementById('finishModal').style.display = 'none';
+
+            clearInterval(timerGlobal);
+            timerGlobal = setInterval(() => tiempoTotal++, 1000);
+
+            cargarPregunta();
+        }
+
+        function cargarPregunta() {
+            clearInterval(timerPregunta);
+            opcionSeleccionada = null;
+            
+            const preg = preguntasRonda[indiceActual];
+            document.getElementById('progressText').innerText = `Pregunta ${indiceActual + 1} de 10 (Faltan: ${10 - (indiceActual + 1)})`;
+            document.getElementById('questionText').innerText = preg.e;
+
+            // Mezclar opciones
+            let opciones = [preg.c, ...preg.o];
+            opciones.sort(() => Math.random() - 0.5);
+
+            const container = document.getElementById('optionsContainer');
+            container.innerHTML = '';
+
+            const incisos = ['a', 'b', 'c', 'd'];
+            opciones.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = `${incisos[index]}) ${opt}`;
+                btn.onclick = () => seleccionarOpcion(btn, opt);
+                container.appendChild(btn);
+            });
+
+            // Temporizador de 40s
+            tiempoRestante = 40;
+            actualizarTimerUI();
+            timerPregunta = setInterval(() => {
+                tiempoRestante--;
+                actualizarTimerUI();
+                if (tiempoRestante <= 0) {
+                    clearInterval(timerPregunta);
+                    reproducirError();
+                    alert("¡Tiempo agotado! El cuestionario se reiniciará.");
+                    iniciarJuego();
+                }
+            }, 1000);
+        }
+
+        function actualizarTimerUI() {
+            document.getElementById('timerText').innerText = `Tiempo: ${tiempoRestante}s`;
+        }
+
+        function seleccionarOpcion(btnElement, valor) {
+            const btns = document.querySelectorAll('.option-btn');
+            btns.forEach(b => b.style.borderColor = '#e9ecef');
+            btns.forEach(b => b.style.backgroundColor = '#f8f9fa');
+
+            btnElement.style.borderColor = '#2563eb';
+            btnElement.style.backgroundColor = '#eff6ff';
+            opcionSeleccionada = valor;
+        }
+
+        function evaluarRespuesta() {
+            if (!opcionSeleccionada) {
+                alert("Por favor, selecciona una opción.");
+                return;
+            }
+
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            clearInterval(timerPregunta);
+            const preg = preguntasRonda[indiceActual];
+
+            if (opcionSeleccionada === preg.c) {
+                // Acierto
+                reproducirAplausos();
+                indiceActual++;
+
+                if (indiceActual < 10) {
+                    cargarPregunta();
+                } else {
+                    // Finalizado con éxito
+                    clearInterval(timerGlobal);
+                    reproducirFanfarria();
+
+                    const mins = Math.floor(tiempoTotal / 60);
+                    const segs = tiempoTotal % 60;
+                    document.getElementById('summaryText').innerText = `¡Lo lograste! Completaste las 10 preguntas.\nTiempo empleado: ${mins} min ${segs} seg`;
+                    document.getElementById('finishModal').style.display = 'flex';
+                }
+            } else {
+                // Error -> Reinicio completo
+                reproducirError();
+                alert("Respuesta incorrecta. El cuestionario se reiniciará desde la pregunta 1.");
+                iniciarJuego();
+            }
+        }
+
+        function reiniciarCuestionario() {
+            iniciarJuego();
+        }
+
+        // --- EFECTOS DE SONIDO NATIVOS (Web Audio API) ---
+        function reproducirError() {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function reproducirAplausos() {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function reproducirFanfarria() {
+            const notas = [523.25, 659.25, 783.99, 1046.50];
+            notas.forEach((freq, i) => {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.12);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(audioCtx.currentTime + i * 0.12);
+                osc.stop(audioCtx.currentTime + i * 0.12 + 0.3);
+            });
+        }
+
+        // Iniciar al cargar la página
+        window.onload = iniciarJuego;
+    </script>
+</body>
+</html>
